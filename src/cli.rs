@@ -2,7 +2,11 @@ use chrono::NaiveDate;
 use clap::{ColorChoice, Parser, Subcommand};
 
 #[derive(Parser, Debug)]
-#[command(version, about, color = ColorChoice::Always)]
+#[command(name = "Tempest")]
+#[command(
+    about = "Your friendly CLI weather buddy - fetches forecasts from wttr.in without the fuss."
+)]
+#[command(version, color = ColorChoice::Always)]
 pub struct Args {
     /// Location for weather data (default: IP-based)
     ///

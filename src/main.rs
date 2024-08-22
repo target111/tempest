@@ -1,15 +1,16 @@
 use clap::Parser;
 use tempest::{Args, Commands, Unit};
+use ureq::AgentBuilder;
 use url::Url;
 
-const BASE_URL: &str = "https://wttr.in";
+const BASE_URL: &str = "http://wttr.in";
 
 fn main() {
     let args = Args::parse();
 
     match build_url(&args) {
         Ok(url) => match get_weather(&url) {
-            Ok(_) => println!("Weather information retrieved successfully."),
+            Ok(response) => println!("{}", response),
             Err(e) => eprintln!("Error fetching weather data: {}", e),
         },
         Err(e) => eprintln!("Error building URL: {}", e),
@@ -55,13 +56,25 @@ fn build_url(args: &Args) -> Result<Url, url::ParseError> {
     }
 }
 
-fn get_weather(url: &Url) -> Result<(), ureq::Error> {
-    let response = ureq::request_url("GET", url)
+fn get_weather(url: &Url) -> Result<String, String> {
+    let agent = AgentBuilder::new()
+        .redirects(5) // Allow up to 5 redirects
+        .build();
+
+    match agent
+        .request_url("GET", url)
         .set("User-Agent", "curl/8.9.1")
         .set("Accept-Language", "en")
         .set("Accept", "*/*")
-        .call()?;
-
-    println!("{}", response.into_string().unwrap());
-    Ok(())
+        .call()
+    {
+        Ok(response) => response
+            .into_string()
+            .map_err(|e| format!("Failed to read response: {}", e)),
+        // wttr.in is weird like that and returns 404 for aribtrary moon dates but still provides a response
+        Err(ureq::Error::Status(_, response)) => response
+            .into_string()
+            .map_err(|e| format!("Failed to read error response: {}", e)),
+        Err(ureq::Error::Transport(e)) => Err(format!("Transport error: {}", e)),
+    }
 }
